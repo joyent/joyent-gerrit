@@ -1,0 +1,203 @@
+#!/bin/bash
+
+#
+# import-github-project GITHUB_ACCOUNT REPO_NAME [USER]: imports the given
+# repository into gerrit.  See the usage message for details.
+#
+
+#
+# Configuration
+#
+
+# DNS name or IP address of Gerrit server
+igp_gerrit_host=cr.joyent.us
+
+# Temporary directory for cloned project
+igp_tmproot="${TMPDIR-/var/tmp}/import-github-project-$$"
+
+#
+# Runtime state
+#
+
+#
+# SSH host string.  This is generally the same as igp_gerrit_host, but may
+# include a "username@" if specified on the command line.
+#
+igp_gerrit_sshhost=
+
+#
+# Source repository: GitHub account and repository name.
+# These are filled in from the command-line arguments.
+#
+igp_gh_account=
+igp_gh_repo=
+
+# Gerrit project name.  This is constructed from the GitHub parameters.
+igp_gerrit_project=
+
+# Directory into which the source repository is cloned.
+igp_clonedir=
+
+function usage
+{
+	cat <<EOF >&2
+usage: import-github-project GITHUB_ACCOUNT REPO_NAME [GERRIT_USER]
+
+This tool copies a GitHub repository at
+
+    https://github.com/GITHUB_ACCOUNT/REPO_NAME
+
+to a new project on the Joyent Gerrit server at $igp_gerrit_host.  The new
+Gerrit project will be configured to replicate back to GitHub.
+
+If GERRIT_USER is provided, then that username is used when pushing over ssh to
+Gerrit.
+
+This tool must be run as a Gerrit administrator.
+EOF
+	exit 2
+}
+
+function main
+{
+	trap igp_cleanup exit
+
+	if [[ $# != 2  && $# != 3 ]]; then
+		usage
+	fi
+
+	if [[ ! $1 =~ ^[-a-zA-Z0-9_]+$ ]] ||
+	   [[ ! $2 =~ ^[-a-zA-Z0-9_]+$ ]]; then
+		fail "GitHub account or repo name contains unsupported" \
+		    "characters"
+	fi
+
+	igp_gh_account=$1
+	igp_gh_repo=$2
+	igp_gerrit_project="$1/$2"
+	igp_clonedir="$igp_tmproot/$igp_gh_repo"
+
+	if [[ -n "$3" ]]; then
+		igp_gerrit_sshhost="$3@$igp_gerrit_host"
+	else
+		igp_gerrit_sshhost="$igp_gerrit_host"
+	fi
+
+	echo "Cloning github.com repository $igp_gerrit_project into " \
+	    "\"$igp_clonedir\"" >&2
+	mkdir "$igp_tmproot" || fail "failed to mkdir \"$igp_tmproot\""
+	igp_github_clone $igp_gh_account $igp_gh_repo "$igp_clonedir" ||
+	    fail "failed to clone"
+
+	echo "Creating remote Gerrit project $igp_gerrit_project" >&2
+	igp_project_create $igp_gerrit_project \
+	    "http://github.com/$igp_gh_account/$igp_gh_repo" ||
+	    fail "failed to create Gerrit project"
+
+	echo "Pushing existing changes to Gerrit project" >&2
+	igp_gerrit_push "$igp_clonedir" "$igp_gerrit_project" || \
+	    fail "failed to push changes"
+
+	cat <<EOF
+Success!  The following project has been created on the Gerrit server:
+
+    https://$igp_gerrit_host/#/admin/projects/$igp_gerrit_project
+
+To make sure replication to GitHub will work, please make sure that the Joyent
+"Engineering" team on GitHub has write access to the GitHub project by visiting
+this page:
+
+    https://github.com/$igp_gerrit_project/settings/collaboration
+
+EOF
+}
+
+function fail
+{
+	echo "import-github-project: $@" >&2
+	exit 1
+}
+
+#
+# igp_cleanup: clean up temporary files.  We do this for both normal and
+# abnormal exit.
+#
+function igp_cleanup
+{
+	#
+	# This is just an especially paranoid check so that we don't do
+	# something terrible.
+	#
+	if [[ -d $igp_tmproot ]]; then
+		echo -n "cleaning up $igp_tmproot ... " >&2
+		(cd $igp_tmproot && \
+		    [[ -d $igp_gh_repo/.git ]] &&
+		    rm -rf $igp_gh_repo)
+		rmdir $igp_tmproot
+		echo "done." >&2
+	fi
+}
+
+#
+# igp_gerrit ARGS...
+#
+# This runs the gerrit CLI over ssh.  For example, to run the "flush-caches"
+# subcommand, run "igp_gerrit flush-caches".
+#
+function igp_gerrit
+{
+	ssh $igp_gerrit_sshhost gerrit "$@"
+}
+
+#
+# igp_project_create NAME SOURCE
+#
+# Creates a project called NAME on the Gerrit server with appropriate settings.
+#
+function igp_project_create
+{
+	#
+	# The extra quotes around the description are necessary, per the Gerrit
+	# create-project documentation.
+	#
+	igp_gerrit "create-project" \
+	    --parent="GitHub-Joyent" \
+	    --description="'Authoritative source for $2'" \
+	    --submit-type=FAST_FORWARD_ONLY \
+	    "$1"
+}
+
+#
+# igp_github_clone ACCOUNT REPONAME DSTPATH
+#
+# Clones the specified repository to the specified local path.
+#
+function igp_github_clone
+{
+	if [[ ! $1 =~ ^[-a-zA-Z0-9_]+$ ]] ||
+	   [[ ! $2 =~ ^[-a-zA-Z0-9_]+$ ]]; then
+		fail "bogus account or repo name!"
+	fi
+
+	git clone git@github.com:$1/$2.git $3
+}
+
+#
+# igp_gerrit_push REPO_PATH PROJECT_NAME
+#
+# For the local git repository at REPO_PATH, add a remote for the Gerrit project
+# PROJECT_NAME and push the repository to it.
+#
+function igp_gerrit_push
+{
+	(
+	set -o errexit
+	cd "$1" 2>&1;
+
+	git remote add cr git+ssh://$igp_gerrit_sshhost/$2.git
+	git push cr master
+	git push cr --tags
+	) || fail "failed to push to Gerrit"
+}
+
+main "$@"
