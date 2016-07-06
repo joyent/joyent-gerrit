@@ -5,6 +5,11 @@
 For help with specific steps or configuration, check out the [Gerrit User
 Guide](https://cr.joyent.us/Documentation/intro-user.html).
 
+**Note that we make one major departure from Gerrit standard practice:** rather
+than putting Change-Id into commit messages, we have people push new patchsets
+to
+[refs/changes/...](https://cr.joyent.us/Documentation/access-control.html#_refs_changes).
+
 If you want to reach out to a person, contact an administrator.  You can [list
 the administrators](https://cr.joyent.us/#/admin/groups/1,members) in Gerrit.
 The new user instructions below will mention a few places where you need an
@@ -100,5 +105,8 @@ Breaking this down:
   explicitly specify the _source_ (i.e., what you're pushing), which is `HEAD`.
 
 Note that for follow-up changes (i.e., new patchsets for the same change),
-you'll be pushing to a different special reference that starts with
-`refs/changes`.
+you'll be pushing to a different [special reference that starts with
+refs/changes
+](https://cr.joyent.us/Documentation/access-control.html#_refs_changes) rather
+than `refs/for/master`.  If none of this makes sense to you, check out the
+Gerrit user docs (see Getting Help above).
