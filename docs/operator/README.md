@@ -177,6 +177,8 @@ Front door container:
   * Updated gerrit.config advertisedAddress.
 * Enable GitWeb for public access: added READ access to refs/meta/config on
   All-Projects.
+* Enable pushing merge commits for administrators to All-Projects so that we can
+  import projects from GitHub that have merge commits already.
 
 ## References
 

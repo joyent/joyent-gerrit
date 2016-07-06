@@ -1,9 +1,6 @@
-* Import documentation and script need to be updated for repos with merge
-  commits.
 * Add image builds to this repository
-* Clean up stuff in staging environment
 * Backup and restore scripts need cleaning up
-* consider building our own image instead of using the openfrontier one
+* Consider building our own image instead of using the openfrontier one
   - theirs reconfigures every time, even though config is on data volume
   - theirs seems to change out from under us in incompatible ways
 * Would be nice to have an option to avoid eliminating votes each time a new
