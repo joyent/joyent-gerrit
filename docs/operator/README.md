@@ -163,7 +163,7 @@ Gerrit app container:
         -e SMTP_SERVER=relay.joyent.com \
         -e SMTP_CONNECT_TIMEOUT=60sec \
         -e USER_EMAIL=no-reply@cr.joyent.us \
-        -d joyent/joyent-gerrit:dev
+        -d joyentunsupported/joyent-gerrit:dev
 
 Note: this also assumes fabrics with Docker containers.  Without it, you'll want
 to add `--link gerrit-postgres:db -p 8080:8080 -p 29418:29418` and remove the

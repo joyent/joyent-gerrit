@@ -1,0 +1,405 @@
+#!/bin/bash
+
+#
+# crrestore: Creates a new deployment of the cr.joyent.us stack from the
+# specified backup.  See the usage message for details.
+#
+
+# Command-line options and arguments
+gr_mode=dev
+gr_backup_path=
+gr_client_id=
+gr_client_secret=
+
+# Container names: configured from command-line arguments
+gr_name_prefix=gerrit$$
+gr_name_volume_db=
+gr_name_volume_gerrit=
+gr_name_postgres=
+gr_name_appserver=
+gr_name_restore=
+gr_name_frontdoor=
+
+# CNS service short names: configured from command-line arguments
+gr_cnssvc_prefix=
+gr_cnssvc_postgres=
+gr_cnssvc_appserver=
+gr_cnssvc_frontdoor=
+
+# Configuration inferred from the environment
+gr_account_uuid=
+gr_account_login=
+gr_datacenter=
+gr_cnsfull_db=
+gr_cnsfull_app=
+gr_appserver_args=
+gr_frontdoor_name=
+
+# Container images
+gr_image_volumes="ubuntu:latest"
+gr_image_postgres="postgres:9.5.3"
+gr_image_appserver="joyentunsupported/joyent-gerrit:dev"
+# TODO when this becomes part of this repo, build under joyentunsupported/
+gr_image_frontdoor="arekinath/gerrit-nginx"
+
+# Gerrit config variables: production deployment
+gr_prod_weburl="https://cr.joyent.us"
+gr_prod_sshd_addr="cr.joyent.us"
+gr_prod_smtp_server="relay.joyent.com"
+gr_prod_httpd_listenurl="proxy-https://*:8080"
+gr_prod_user_email="no-reply@cr.joyent.us"
+gr_prod_replication="true"
+gr_prod_frontdoor_name="cr.joyent.us"
+
+# Gerrit config variables: development/staging deployments
+gr_dev_weburl="https://localhost"
+gr_dev_sshd_addr="localhost:30023"
+gr_dev_smtp_server="relay.joyent.com"
+gr_dev_httpd_listenurl="proxy-https://*:8080"
+gr_dev_user_email="no-reply@cr.joyent.us"
+gr_dev_replication="false"
+gr_dev_frontdoor_name="localhost"
+
+function usage
+{
+	cat <<EOF >&2
+usage: crrestore [-n NAME_PREFIX] -p /path/to/backup
+       crrestore [-n NAME_PREFIX] -c CLIENT_ID -s CLIENT_SECRET /path/to/backup
+
+Creates a new deployment of cr.joyent.us from the specified backup.  This can be
+used to create a complete replacement for cr.joyent.us or to create a staging
+environment that looks similar.
+
+    -c CLIENT_ID, -s CLIENT_SECRET
+
+           Override the default client ID and client secret used for GitHub
+	   authentication.  This is generally a good idea for development
+	   deployments.
+
+    -p
+
+           Create production deployment.  The hostnames used will suitable for
+	   the production cr.joyent.us deployment and replication to GitHub will
+	   be enabled.
+
+    -n NAME_PREFIX
+
+           If specified, this prefix is used for all container names.  The
+	   default is a likely unique prefix that starts with "gerrit".  You can
+	   specify a different prefix primarily for testing.
+
+You should have "docker" and "triton" on your path and configured appropriately.
+EOF
+	exit 2
+}
+
+function main
+{
+	set -o errexit
+
+	while getopts "c:n:ps:" c; do
+		case "$c" in
+		c)	gr_client_id=$OPTARG ;;
+		n)	gr_name_prefix=$OPTARG ;;
+		p)	gr_mode=prod ;;
+		s)	gr_client_secret=$OPTARG ;;
+		*)	usage ;;
+		esac
+	done
+
+	shift $(( OPTIND - 1 ))
+	if [[ $# != 1 ]]; then
+		usage
+	fi
+
+	gr_backup_path="$1"
+	gr_configure || fail "failed to configure"
+
+	echo -n "Creating database volume container ... "
+	docker run --name=$gr_name_volume_db \
+	    -v /gerrit-postgres-db-data $gr_image_volumes \
+	    echo "database volume container created." || fail "failed"
+
+	echo -n "Creating Gerrit volume container ... "
+	docker run --name=$gr_name_volume_gerrit \
+	    -v /var/gerrit/review_site $gr_image_volumes \
+	    echo "gerrit volume container created." || fail "failed"
+
+	echo -n "Creating PostgreSQL runtime container ... "
+	docker run \
+	    --name $gr_name_postgres \
+	    --label triton.cns.services=$gr_cnssvc_postgres \
+	    -e POSTGRES_USER=gerrit2 \
+	    -e POSTGRES_PASSWORD=gerrit \
+	    -e POSTGRES_DB=reviewdb \
+	    -e PGDATA=/gerrit-postgres-db-data \
+	    --volumes-from $gr_name_volume_db \
+	    --restart=always \
+	    -d $gr_image_postgres || fail "failed"
+	echo "done."
+
+	echo -n "Uploading PostgreSQL backup ... "
+	docker cp "$gr_backup_path/postgresdb" \
+	    $gr_name_postgres:/var/tmp/postgresdb || fail "failed"
+	echo "done."
+
+	echo -n "Restoring PostgreSQL backup ... "
+	docker exec $gr_name_postgres \
+	    pg_restore -U gerrit2 -d reviewdb /var/tmp/postgresdb || \
+	    fail "failed"
+	echo "done."
+
+	#
+	# TODO This is pretty awful, but we don't seem to be able to "docker cp"
+	# into a volume container, nor can we "docker run" tar(1) and redirect
+	# stdin from our tarball.  So we instantiate a container for a while,
+	# upload and unpack the tarball, and tear down the container again.
+	#
+	# We use the same image that we use for the appserver because the tar
+	# file makes reference to users and groups defined in that image, and we
+	# want to make sure they exist in the restore container.  We override
+	# the entrypoint so that we don't actually run Gerrit when we start the
+	# container.
+	#
+	echo -n "Creating restore container for Gerrit data directory ... "
+	docker run -d --volumes-from $gr_name_volume_gerrit \
+	    --name=$gr_name_restore --entrypoint="/native/usr/bin/bash" \
+	    $gr_image_appserver -c 'sleep 3600' || \
+	    fail "failed"
+
+	echo -n "Uploading backup to restore container ... "
+	docker cp "$gr_backup_path/data.tgz" $gr_name_restore:/var/tmp || \
+	    fail "failed"
+	echo "uploaded."
+
+	echo -n "Restoring backup of Gerrit data directory ... "
+	docker exec $gr_name_restore tar -C /var/gerrit -xzf /var/tmp/data.tgz \
+	    || fail "failed"
+	echo "done."
+
+	echo -n "Removing restore container ... "
+	docker rm -f $gr_name_restore || fail "failed to remove container"
+
+	echo -n "Starting Gerrit application container ... "
+	docker run -d \
+	    --name $gr_name_appserver \
+	    --label triton.cns.services=$gr_cnssvc_appserver \
+	    --volumes-from=$gr_name_volume_gerrit \
+	    --restart=always $gr_appserver_args $gr_image_appserver
+	echo "done."
+
+	echo -n "Deploying nginx frontdoor container ... "
+	docker run -d \
+	    --name=$gr_name_frontdoor \
+	    --label triton.cns.services=$gr_cnssvc_frontdoor \
+	    -e MY_NAME=$gr_frontdoor_name \
+	    -e GERRIT_HOST="$gr_cnsfull_app" \
+	    -e SSH_PORT=29418 \
+	    -e HTTP_PORT=8080 \
+	    -p 22 \
+	    -p 80 \
+	    -p 443 \
+	    -p 29418 \
+	    $gr_image_frontdoor
+	echo "done."
+}
+
+function fail
+{
+	echo "gerritrestore: $@" >&2
+	exit 1
+}
+
+function gr_configure
+{
+	local accountinfo dockerinfo sdcaccount
+
+	#
+	# Validate command-line arguments.
+	#
+	if [[ $gr_mode == "dev" ]] &&
+	   [[ -z "$gr_client_id" || -z "$gr_client_secret" ]]; then
+		fail "-c and -s options are required for dev mode"
+	fi
+
+	if [[ $gr_mode == "prod" ]] &&
+	   [[ -n "$gr_client_id" || -n "$gr_client_secret" ]]; then
+	   	echo "warn: using -p with -c or -s is not expected" >&2
+	fi
+
+	if [[ $gr_backup_path =~ : ]]; then
+		fail "backup paths with colons are unsupported"
+	fi
+
+	if [[ ! -d "$gr_backup_path" ]] ||
+	   [[ ! -f "$gr_backup_path/postgresdb" ]] ||
+	   [[ ! -f "$gr_backup_path/data.tgz" ]]; then
+		fail "does not look like a valid backup: \"$gr_backup_path\""
+	fi
+
+	#
+	# Check for the tools we need in the environment.  docker is needed for
+	# most of the deployment.  triton is needed to fetch the account uuid,
+	# which is used in internal CNS names in the Triton Cloud.
+	# TODO can we get the account uuid from "docker info"?
+	#
+	if ! type -f docker > /dev/null; then
+		fail "docker command not found on path"
+	elif ! type -f triton > /dev/null; then
+		fail "triton command not found on path"
+	fi
+
+	#
+	# Validate the environment's configuration.  Given that we're fetching
+	# information from both docker and triton, make sure they match.
+	#
+	echo -n "Determing account information using 'triton' ... "
+	accountinfo="$(triton account get --json)" || \
+	    fail "failed to fetch account info from triton"
+
+	gr_account_login="$(json login <<< "$accountinfo")"
+	gr_account_uuid="$(json id <<< "$accountinfo")"
+	if [[ -z "$gr_account_uuid" || -z "$gr_account_login" ]]; then
+		fail "failed to determine account uuid" \
+		    "and login from triton command"
+	fi
+	echo "done."
+
+	echo "   'triton' reports account $gr_account_login ($gr_account_uuid)"
+
+	echo -n "Checking Docker configuration ... "
+	dockerinfo="$(docker info 2>/dev/null)" || \
+	    fail "failed to run 'docker info'"
+	gr_datacenter="$(awk '$1 == "Name:"{ print $2 }' <<< "$dockerinfo")"
+	sdcaccount="$(awk '$1 == "SDCAccount:"{ print $2 }' <<< "$dockerinfo")"
+	if [[ "$sdcaccount" != "$gr_account_login" ]]; then
+		echo "fail"
+		fail "cannot determine account uuid for CNS name: SDC" \
+		    "account reported by 'docker info' (\"$sdcaccount\")" \
+		    "does not match 'triton account get'"
+	fi
+	echo "done."
+	echo "   'docker' reports datacenter $gr_datacenter"
+
+	if [[ $gr_mode == "prod" && "$gr_datacenter" != "us-west-1" ]]; then
+		echo "warn: deploying prod to datacenter other than" \
+		    "us-west-1" >&2
+	fi
+
+	#
+	# Configure the names of the various containers based on the prefix,
+	# which may have been overridden on the command line.
+	#
+	gr_name_volume_db=$gr_name_prefix-volume-db
+	gr_name_volume_gerrit=$gr_name_prefix-volume-gerrit
+	gr_name_postgres=$gr_name_prefix-postgres
+	gr_name_appserver=$gr_name_prefix-appserver
+	gr_name_restore=$gr_name_prefix-restore
+	gr_name_frontdoor=$gr_name_prefix-frontdoor
+
+	#
+	# Similarly, configure the CNS names based on the same prefix.
+	#
+	# Promotion to production: today, "cr.joyent.us" is a CNAME for the
+	# *externally-facing* CNS name of the front door container.
+	#
+	# In order to allow people to deploy an entire second stack before
+	# promoting it to production, we use a unique prefix for all CNS names
+	# in this particular standup.  (We actually just include this processes
+	# pid, but if that's not unique, this will fail quickly because it's
+	# also used for the container names.)
+	#
+	# To actually promote the second stack to production, one could either
+	# redirect the "cr.joyent.us" CNAME to point to the unique, public CNS
+	# name for the new front door container, or we could add a second label
+	# to the front door container that will cause it to be picked up in the
+	# external CNS name that "cr.joyent.us" already points to.  The latter
+	# is a little simpler and faster to propagate.
+	#
+	# TODO this should be documented elsewhere, with appropriate tools.
+	#
+	gr_cnssvc_prefix=$gr_name_prefix
+	gr_cnssvc_postgres=$gr_cnssvc_prefix-database
+	gr_cnssvc_appserver=$gr_cnssvc_prefix-appserver
+	gr_cnssvc_frontdoor=$gr_cnssvc_prefix
+
+	#
+	# Configure the CNS names used for internal services.
+	#
+	gr_cnsfull_db="$(gr_cnsname_internal $gr_cnssvc_postgres)"
+	gr_cnsfull_app="$(gr_cnsname_internal $gr_cnssvc_appserver)"
+
+	#
+	# Configure the app server arguments based on which mode we're in.
+	# Changes to this should instead be made to the corresponding variables
+	# defined at the top of this file.
+	#
+	if [[ $gr_mode == "dev" ]]; then
+		gr_appserver_args="-e JG_CANONICALWEBURL=$gr_dev_weburl \
+		    -e JG_JOYENT_ENABLE_REPLICATION=$gr_dev_replication \
+		    -e JG_SENDEMAIL_SMTPSERVER=$gr_dev_smtp_server \
+		    -e JG_SSHD_ADVERTISEDADDRESS=$gr_dev_sshd_addr \
+		    -e JG_HTTPD_LISTENURL=$gr_dev_httpd_listenurl \
+		    -e JG_USER_EMAIL=$gr_dev_user_email \
+		    -e JG_DATABASE_HOSTNAME=$gr_cnsfull_db"
+		gr_frontdoor_name=$gr_dev_frontdoor_name
+	else
+		gr_appserver_args="-e JG_CANONICALWEBURL=$gr_prod_weburl \
+		    -e JG_JOYENT_ENABLE_REPLICATION=$gr_prod_replication \
+		    -e JG_SENDEMAIL_SMTPSERVER=$gr_prod_smtp_server \
+		    -e JG_SSHD_ADVERTISEDADDRESS=$gr_prod_sshd_addr \
+		    -e JG_HTTPD_LISTENURL=$gr_prod_httpd_listenurl \
+		    -e JG_USER_EMAIL=$gr_prod_user_email \
+		    -e JG_DATABASE_HOSTNAME=$gr_cnsfull_db"
+		gr_frontdoor_name=$gr_prod_frontdoor_name
+	fi
+
+	if [[ -n "$gr_client_id" ]]; then
+		gr_appserver_args="$gr_appserver_args -e \
+		    JG_GITHUB_CLIENT_ID=$gr_client_id"
+	fi
+
+	if [[ -n "$gr_client_secret" ]]; then
+		gr_appserver_args="$gr_appserver_args -e \
+		    JG_GITHUB_CLIENT_SECRET=$gr_client_secret"
+	fi
+
+	gr_confirm "Are you sure you want to continue? " || \
+	    fail "aborted by user"
+}
+
+#
+# gr_cnsname_internal SVCNAME
+#
+# Generate an internal CNS name for the given service.  This uses account
+# information as well as knowledge about the datacenter we're deploying to.  CNS
+# names in private environments like staging have different top-level
+# domains and use the account's login rather than the uuid.
+# TODO is there a better way to programmatically tell which case we're in?
+#
+function gr_cnsname_internal
+{
+	local rv
+
+	printf "$1.svc."
+
+	if [[ $gr_datacenter =~ ^us- ]]; then
+		printf "$gr_account_uuid.$gr_datacenter.cns.joyent.com"
+	else
+		printf "$gr_account_login.$gr_datacenter.cns.joyent.us"
+	fi
+}
+
+#
+# gr_confirm PROMPT
+#
+# Prompts the user with the given string.  Returns whether the output appears
+# affirmative.
+#
+function gr_confirm
+{
+	read -p "$1"
+	[[ $REPLY =~ ^[Yy]$ || $REPLY == "yes" ]]
+}
+
+main "$@"

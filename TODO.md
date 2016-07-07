@@ -1,12 +1,12 @@
-* Add image builds to this repository
+* Write crbackup
+* Test crbackup/crrestore to deploy a new production deployment with latest
+  changes
+* Try 2.11 (or 2.13?) to fix two bugs:
+  - firefox: copying text from browser
+  - firefox: the login bug people are hitting
+* Document crbackup and crrestore
+* Add nginx image to this repository
 * Backup and restore scripts need cleaning up
-* Consider building our own image instead of using the openfrontier one
-  - theirs reconfigures every time, even though config is on data volume
-  - theirs seems to change out from under us in incompatible ways
-* Would be nice to have an option to avoid eliminating votes each time a new
-  review is submitted?  This presumably needs to be optional.  Sometimes you
-  want the votes to carry over (e.g., a commit message nit), and sometimes you
-  don't.
 * Would be nice to have a plugin to auto-update commit message with reviewers
   and approved-by (without the other metadata that Gerrit likes to add)
 * backup story for github repos?
