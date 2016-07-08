@@ -22,6 +22,39 @@ groups, but both ultimately need to be part of "Change Approver Role", so that's
 why there are separate groups.
 
 
+## Importing repositories that are on GitHub
+
+**Please do not create repositories by hand in the Gerrit web UI.**  It's hard
+to get the settings right, and we likely won't discover if they're wrong until
+something bad has already happened.
+
+Use the [import-github-project script](../../bin/import-github-project) script
+inside this repository to import a repository from GitHub.  This script:
+
+- creates a new Gerrit project with appropriate settings, including replication
+  to GitHub
+- clones the repository from GitHub
+- pushes the repository to Gerrit
+
+**Note:** the script may report problems pushing tags or non-master branches.
+We haven't figured out yet how we're going to deal with these branches, but the
+failure to push these branches doesn't affect using code review for master.
+
+Also, **please review the user instructions for importing repositories that are
+on GitHub**.  They have a bunch of important notes about how things change once
+a repository is imported.
+
+
+## Creating new repositories
+
+See the user instructions "Creating a new repository".  (They basically say to
+create the repository on GitHub and then treat it as an import.)
+
+(**Please do not create repositories by hand in the Gerrit web UI.**  It's hard
+to get the settings right, and we likely won't discover if they're wrong until
+something bad has already happened.)
+
+
 ## Deployment notes
 
 This section needs work.

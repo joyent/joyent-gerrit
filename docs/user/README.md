@@ -64,6 +64,29 @@ Unfortunately, only administrators can usefully create projects, so the easiest
 thing is to have one of them do it.
 
 
+## Creating a new repository
+
+By far, the easiest way to create new repositories is to:
+
+1. Create the repository on GitHub.
+2. Push a commit to the GitHub repository (master branch).  This can be the
+   first substantive commit you want in the repo or an empty commit if you want
+   to use code review for the first substantive commit.
+3. Have an administrator import the repository from GitHub.
+
+At this point, the project should be fully functional on Gerrit.  Changes that
+go through code review on Gerrit and are ultimately submitted (integrated into
+master) will be replicated to GitHub.  Changes pushed directly to master on
+Gerrit (bypassing code review) will also be replicated to GitHub.  
+
+**At this point, people should stop pushing to GitHub.**  Ideally, we would turn
+off the ability to push to GitHub, but we have not written any tooling or
+documentation for this yet.  (Note that we have not crossed any rubicon here: if
+for whatever reason we decide to remove a project from Gerrit or stop using
+Gerrit altogether, we can just re-allow access to push to GitHub and remove the
+project from Gerrit.)
+
+
 ## Using Gerrit with an existing local workspace
 
 Suppose you've been working on a project from the GitHub copy, and someone has
