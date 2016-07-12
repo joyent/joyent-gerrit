@@ -1,10 +1,9 @@
-* Write crbackup
 * Test crbackup/crrestore to deploy a new production deployment with latest
   changes
+* Document crbackup and crrestore
 * Try 2.11 (or 2.13?) to fix two bugs:
   - firefox: copying text from browser
   - firefox: the login bug people are hitting
-* Document crbackup and crrestore
 * Add nginx image to this repository
 * Backup and restore scripts need cleaning up
 * Would be nice to have a plugin to auto-update commit message with reviewers

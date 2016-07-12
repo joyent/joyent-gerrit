@@ -63,6 +63,14 @@ Guide](https://cr.joyent.us/Documentation/intro-user.html).
 Unfortunately, only administrators can usefully create projects, so the easiest
 thing is to have one of them do it.
 
+**Once a repository has been imported, people should stop pushing to GitHub.**
+Please notify people (e.g., by emailing devs).  Ideally, we would turn off the
+ability to push to GitHub, but we have not written any tooling or documentation
+for this yet.  (Note that we have not crossed any rubicon here: if for whatever
+reason we decide to remove a project from Gerrit or stop using Gerrit
+altogether, we can just re-allow access to push to GitHub and remove the project
+from Gerrit.)
+
 
 ## Creating a new repository
 
@@ -78,13 +86,6 @@ At this point, the project should be fully functional on Gerrit.  Changes that
 go through code review on Gerrit and are ultimately submitted (integrated into
 master) will be replicated to GitHub.  Changes pushed directly to master on
 Gerrit (bypassing code review) will also be replicated to GitHub.  
-
-**At this point, people should stop pushing to GitHub.**  Ideally, we would turn
-off the ability to push to GitHub, but we have not written any tooling or
-documentation for this yet.  (Note that we have not crossed any rubicon here: if
-for whatever reason we decide to remove a project from Gerrit or stop using
-Gerrit altogether, we can just re-allow access to push to GitHub and remove the
-project from Gerrit.)
 
 
 ## Using Gerrit with an existing local workspace
