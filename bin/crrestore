@@ -60,6 +60,9 @@ gr_dev_user_email="no-reply@cr.joyent.us"
 gr_dev_replication="false"
 gr_dev_frontdoor_name="localhost"
 
+# Other configuration
+pg_timeout=60
+
 function usage
 {
 	cat <<EOF >&2
@@ -143,6 +146,22 @@ function main
 	    $gr_name_postgres:/var/tmp/postgresdb || fail "failed"
 	echo "done."
 
+	echo -n "Waiting up to $pg_timeout seconds for" \
+	    "PostgreSQL to come up ... "
+	for (( i = 0; i < $pg_timeout; i++ )) {
+		if docker exec -i $gr_name_postgres \
+		    psql -U gerrit2 -c 'select NOW()' \
+		    reviewdb > /dev/null 2>&1; then
+		    pg_okay=true
+		    break;
+		fi
+	}
+
+	if [[ "$pg_okay" != "true" ]]; then
+		fail "PostgreSQL did not come up within $pg_timeout seconds."
+	fi
+	echo "done."
+
 	echo -n "Restoring PostgreSQL backup ... "
 	docker exec $gr_name_postgres \
 	    pg_restore -U gerrit2 -d reviewdb /var/tmp/postgresdb || \
@@ -206,7 +225,7 @@ function main
 
 function fail
 {
-	echo "gerritrestore: $@" >&2
+	echo "crrestore: $@" >&2
 	exit 1
 }
 
