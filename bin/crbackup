@@ -1,0 +1,179 @@
+#!/bin/bash
+
+#
+# crbackup: Backs up a deployment of the cr.joyent.us stack to a local
+# directory.  See usage message for details.
+#
+
+# Command-line options and arguments
+gb_backup_path=
+gb_force=false
+
+# Container names: configured from command-line arguments
+gb_name_prefix=gerrit
+gb_name_volume_gerrit=
+gb_name_postgres=
+gb_name_appserver=
+gb_name_backup=
+
+# Container images
+gb_image_backup="ubuntu"
+
+function usage
+{
+	cat <<EOF >&2
+usage: crbackup [-f] [-n NAME_PREFIX] /path/to/store/backup
+
+Backs up a deployment of cr.joyent.us to a local directory.  You can use the
+crrestore tool to stand up a new copy of the stack from the backup.
+
+    -f
+
+           If specified, allow the backup to proceed even if the target
+	   application container is still running.  Otherwise, the backup aborts
+	   if the application container is found running because the backup may
+	   be self-inconsistent.
+
+    -n NAME_PREFIX
+
+	   If specified, this prefix is used to find containers by name.
+	   The default is "gerrit".
+
+You should have "docker" on your path and configured appropriately.
+EOF
+	exit 2
+}
+
+function main
+{
+	set -o errexit
+	set -o pipefail
+
+	local dockerstate
+
+	while getopts "fn:" c; do
+		case "$c" in
+		f)	gb_force=true ;;
+		n)	gb_name_prefix=$OPTARG ;;
+		*)	usage ;;
+		esac
+	done
+
+	shift $(( OPTIND - 1 ))
+	if [[ $# != 1 ]]; then
+		usage
+	fi
+
+	gb_backup_path="$1"
+	gb_name_volume_gerrit="$gb_name_prefix-volume-gerrit"
+	gb_name_postgres="$gb_name_prefix-postgres"
+	gb_name_appserver="$gb_name_prefix-appserver"
+	gb_name_backup="$gb_name_prefix-backup"
+
+	gb_precheck
+	gb_prepare_backup
+	gb_backup_postgres
+	gb_backup_gerrit
+}
+
+function fail
+{
+	echo "crbackup: $@" >&2
+	exit 1
+}
+
+function warn
+{
+	echo "crbackup: WARN: $@" >&2
+}
+
+#
+# Check preconditions: namely, that the application server container is not
+# running and the local backup path does not already exist.
+#
+function gb_precheck
+{
+	local dockerstate
+
+	if [[ -d "$gb_backup_path" ]]; then
+		fail "backup path already exists: $gb_backup_path"
+	fi
+
+	echo -n "Checking application state ... "
+	dockerstate="$(docker inspect $gb_name_appserver | \
+	    json 0.State.Running)" || fail "failed"
+	if [[ "$dockerstate" != "false" ]]; then
+		if [[ "$gb_force" == "true" ]]; then
+			echo "okay."
+			warn "appserver container is still running, but" \
+			    "proceeding because -f was specified"
+		else
+			echo "FAIL."
+			fail "appserver container is still running and" \
+			    "-f was not specified"
+		fi
+	else
+			echo "okay."
+	fi
+}
+
+#
+# Create the local backup directory.
+#
+function gb_prepare_backup
+{
+	echo -n "Creating destination backup directory \"$gb_backup_path\" ... "
+	mkdir -p "$gb_backup_path" || fail "failed"
+	echo "done."
+}
+
+#
+# Create the backup on the PostgreSQL host.  pg_dump can be run while
+# transactions are running.
+#
+function gb_backup_postgres
+{
+	echo "Backing up PostgreSQL database ... "
+	docker exec $gb_name_postgres \
+	    bash -c "pg_dump --username=gerrit2 --no-password --verbose \
+	    --format=custom --file=/var/tmp/pgbackup reviewdb" || \
+	    fail "failed to create backup"
+	echo "done postgresql backup."
+
+	echo -n "Copying PostgreSQL backup to local directory ... "
+	docker cp $gb_name_postgres:/var/tmp/pgbackup \
+	    $gb_backup_path/postgresdb || fail "failed to copy backup"
+	echo "done."
+
+	echo -n "Removing remote copy of PostgreSQL backup ... "
+	docker exec $gb_name_postgres bash -c "rm -f /var/tmp/pgbackup" \
+	    || fail "failed to remove remote copy of backup"
+	echo "done."
+}
+
+#
+# Create the backup of the Gerrit data container.
+#
+function gb_backup_gerrit
+{
+	#
+	# As in the restore case, this would be substantially simpler if we
+	# could "docker cp" using a volume container.
+	#
+	echo -n "Creating backup container for Gerrit data directory ... "
+	docker run -d --volumes-from $gb_name_volume_gerrit \
+	    --name=$gb_name_backup \
+	    $gb_image_backup \
+	    sleep 3600 || fail "failed"
+	echo "done."
+
+	echo -n "Downloading backup from backup container ... "
+	(docker cp $gb_name_backup:/var/gerrit/review_site - | gzip > \
+	    $gb_backup_path/data.tgz) || fail "failed"
+	echo "done."
+
+	echo -n "Cleaning up backup container ... "
+	docker rm -f $gb_name_backup || fail "failed"
+}
+
+main "$@"
