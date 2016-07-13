@@ -1,3 +1,4 @@
+* create "temporary superuser" group?
 * Test crbackup/crrestore to deploy a new production deployment with latest
   changes
 * Document crbackup and crrestore
