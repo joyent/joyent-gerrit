@@ -101,20 +101,20 @@ administrator to take action to get your account set up.
    account name.  You can confirm this in the Gerrit web UI by clicking the
    "Profile" link on the left (from the same screen where you added your email
    address).  The "username" field should match your GitHub account name.
-   
+
    You should be able to log in like this (with your username):
 
        $ ssh davepacheco@cr.joyent.us
-       
+
          ****    Welcome to Gerrit Code Review    ****
-       
+
          Hi David Pacheco, you have successfully connected over SSH.
-       
+
          Unfortunately, interactive shells are disabled.
          To clone a hosted Git repository, use:
-       
+
          git clone ssh://davepacheco@cr.joyent.us/REPOSITORY_NAME.git
-       
+
        Connection to cr.joyent.us closed.
 
   If you have trouble with this, see "Getting help" above.
@@ -144,7 +144,7 @@ Let's walk through an example.  I've got a repository on cr.joyent.us called
 Now, let me add a README and commit that:
 
     dap@sharptooth my-playground $ vim README.md
-    dap@sharptooth my-playground $ git add README.md 
+    dap@sharptooth my-playground $ git add README.md
     dap@sharptooth my-playground $ git commit -m "add initial README"
     [master 95a7c80] add initial README
      1 file changed, 1 insertion(+)
@@ -161,11 +161,11 @@ create a new change from my commit by pushing to the magic branch
     Counting objects: 4, done.
     Writing objects: 100% (3/3), 266 bytes, done.
     Total 3 (delta 0), reused 0 (delta 0)
-    remote: Processing changes: new: 1, refs: 1, done    
-    remote: 
+    remote: Processing changes: new: 1, refs: 1, done
+    remote:
     remote: New Changes:
     remote:   https://cr.joyent.us/12 add initial README
-    remote: 
+    remote:
     To ssh://davepacheco@cr.joyent.us/my-playground.git
      * [new branch]      HEAD -> refs/for/master
 
@@ -178,8 +178,8 @@ UI.  We won't go through that process here.
 
 Once I've got feedback, I might make some changes to the README:
 
-    dap@sharptooth my-playground $ vim README.md 
-    dap@sharptooth my-playground $ git add README.md 
+    dap@sharptooth my-playground $ vim README.md
+    dap@sharptooth my-playground $ git add README.md
     dap@sharptooth my-playground $ git commit -m "forgot to add content"
     [master f6eb4be] forgot to add content
      1 file changed, 2 insertions(+)
@@ -203,11 +203,11 @@ a new PatchSet for Change 12):
     Compressing objects: 100% (2/2), done.
     Writing objects: 100% (3/3), 316 bytes, done.
     Total 3 (delta 0), reused 0 (delta 0)
-    remote: Processing changes: updated: 1, refs: 1, done    
-    remote: 
+    remote: Processing changes: updated: 1, refs: 1, done
+    remote:
     remote: Updated Changes:
     remote:   https://cr.joyent.us/12 initial README; forgot to add content
-    remote: 
+    remote:
     To ssh://davepacheco@cr.joyent.us/my-playground.git
      * [new branch]      HEAD -> refs/changes/12
 
@@ -288,7 +288,7 @@ By far, the easiest way to create new repositories is to:
 At this point, the project should be fully functional on Gerrit.  Changes that
 go through code review on Gerrit and are ultimately submitted (integrated into
 master) will be replicated to GitHub.  Changes pushed directly to master on
-Gerrit (bypassing code review) will also be replicated to GitHub.  
+Gerrit (bypassing code review) will also be replicated to GitHub.
 
 
 ## Merging from upstream repositories
@@ -401,7 +401,7 @@ Please review the [Gerrit semantics around voting on changes](https://cr.joyent.
 * Votes are -2, -1, 0, +1, or +2.
 * A "-2" vote is a veto: it means you're absolutely not okay with the change.
 * A "-1" vote is a less strong wait to vote against a change.  It means you're
-  not happy with it as-is, but you're not actually vetoing the change. 
+  not happy with it as-is, but you're not actually vetoing the change.
 * A "+1" vote is a thumbs-up: you're happy with the change as-is, but you want
   someone else to approve it.
 * A "+2" vote is an approval to integrate the change.
@@ -485,7 +485,7 @@ submit a new patchset:
     $ git rebase -i cr/master
 
     # Push the new patchset for review (see above for details)
-    $ git push cr refs/changes/XYZ
+    $ git push cr HEAD:refs/changes/XYZ
 
     # Switch back to your working branch.
     $ git checkout WORKING_BRANCH
@@ -508,7 +508,7 @@ except for importing a new project.  We've set up relatively fine-grained access
 control for most other operations.  As an administrator, the safeties are off,
 and you can easily end up doing the wrong thing (e.g., pushing to master and
 bypassing code review).  For that reason, we're trying to keep the group as
-small as we can.  
+small as we can.
 
 If you do want to sign up to help run cr.joyent.us as an administrator, check
 out the [operator guide](../operator/README.md) first and then talk to an
