@@ -215,33 +215,64 @@ To back up the stack:
 The containers representing the service are automatically located by name (e.g.,
 "gerrit-appserver") using the "docker" tool.
 
-To create a new _test_ production deployment from a backup, you could run:
-
-    #
-    # Create a production-like deployment called "gerrit-staging" from the
-    # backup in "./2016-06-12-0".
-    #
-    crrestore -p -n gerrit-staging ./2016-06-12-0
-
-To replace the real production deployment, you could specify "-n gerrit"
-instead, which will cause the nginx image to have the right CNS name that
-cr.joyent.us points to.  A better approach (that doesn't require clobbering the
-existing deployment) would be to let "crrestore" pick its own prefix and
-manually tag the nginx image with the appropriate CNS service.  Obviously, we
-need some tooling for this.
-
-**Note:** the SSL certificate for the nginx container is not currently part of
-the backup/restore process, so it will always try to generate a new certificate
-when you redeploy it.  This generally won't work unless you're deploying a
-production version, and even then it won't work until after "cr.joyent.us"
-points to the new nginx container.
-
 To create a new test environment from a backup, you would typically run:
 
     crrestore -c CLIENT_ID -s CLIENT_SECRET ./2016-06-12-0
 
 where CLIENT\_ID and CLIENT\_SECRET come from a GitHub oauth application that
-you've set up for testing.
+you've set up for testing.  This is necessary because the GitHub application
+configuration specifies what server it's for (e.g., https://cr.joyent.us) and
+redirects clients to that server, so you cannot use the same one for testing
+that we use in production.
+
+For a production deployment, you'd leave out the "-c" and "-s" flags and add
+"-p" (for "production").  It's recommended that you use "-n gerritDATESTAMP" to
+create a unique group of containers.  If you do this, you'll have to manually
+tag the nginx image with the appropriate CNS service name.  Here's what the
+whole process looks like for a production deployment.
+
+    # Stop the current appserver to get a consistent backup.
+    docker stop gerritOLDDATE-appserver
+
+    # Back up the existing deployment to a local directory.
+    ./bin/crbackup -n gerritOLDDATE ../backups/NEWDATE
+
+    # Deploy a new stack from the backup.
+    ./bin/crrestore -p -n gerritNEWDATE ../backups/NEWDATE
+
+    #
+    # Test the new stack.  Update your /etc/hosts to point cr.joyent.us at
+    # the public IP for the frontdoor container and then access the browser
+    # interface.  Validate any changes you want.  Note that by the time you're
+    # doing a production deployment, you likely have already validated the
+    # changes in a testing deployment, so this is just a sanity check.
+    #
+    # When you're ready, verify that the new frontdoor container has
+    # a CNS service name "gerritNEWDATE":
+    #
+    triton instance tag list gerritNEWDATE-frontdoor 
+
+    # Now add the CNS service name "gerrit" as well.
+    triton instance tag set gerritNEWDATE-frontdoor \
+        triton.cns.services=gerritNEWDATE,gerrit
+
+    # Now shut down the old containers.
+    docker stop gerritOLDDATE-{frontdoor,postgres}
+
+    #
+    # Wait for cr.joyent.us to point to the new public IP.  The TTL on
+    # cr.joyent.us is long, but the CNAME it points to should update within 30
+    # seconds.
+    #
+
+**Note:** the SSL certificate for the nginx container is not currently part of
+the backup/restore process, so it will always try to generate a new certificate
+when you redeploy it.  This generally won't work unless you're deploying a
+production version, and even then it won't work until after "cr.joyent.us"
+points to the new nginx container.  At that point, it _should_ work, but we've
+seen cases where it didn't.  In that case, try "docker exec" into the frontdoor
+container and send SIGHUP to the nginx process.
+
 
 
 ## References
