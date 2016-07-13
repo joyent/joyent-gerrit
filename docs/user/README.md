@@ -134,7 +134,7 @@ above.
 Let's walk through an example.  I've got a repository on cr.joyent.us called
 `my-playground`.  First, I clone it:
 
-    dap@sharptooth ~ $ git clone ssh://davepacheco@cr.joyent.us/my-playground.git
+    dap@sharptooth ~ $ git clone --origin=cr ssh://davepacheco@cr.joyent.us/my-playground.git
     Cloning into 'my-playground'...
     remote: Counting objects: 2, done
     remote: Finding sources: 100% (2/2)
@@ -157,7 +157,7 @@ well as the review and automated verification process around the change.  I can
 create a new change from my commit by pushing to the magic branch
 `refs/for/master`:
 
-    dap@sharptooth my-playground $ git push origin HEAD:refs/for/master
+    dap@sharptooth my-playground $ git push cr HEAD:refs/for/master
     Counting objects: 4, done.
     Writing objects: 100% (3/3), 266 bytes, done.
     Total 3 (delta 0), reused 0 (delta 0)
@@ -197,7 +197,7 @@ change:
 And then I push that to the magical reference `refs/changes/12` (because this is
 a new PatchSet for Change 12):
 
-    dap@sharptooth my-playground $ git push origin HEAD:refs/changes/12
+    dap@sharptooth my-playground $ git push cr HEAD:refs/changes/12
     Counting objects: 4, done.
     Delta compression using up to 8 threads.
     Compressing objects: 100% (2/2), done.
