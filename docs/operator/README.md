@@ -82,6 +82,14 @@ administrators to create or import projects.  There's a deprecated "Project
 Creator Role" where we experimented with delegating this privilege.
 
 
+#### Project owners
+
+Gerrit supports project owners that have additional access rights on
+repositories.  We do not use these.  The whole team (and potentially community
+members to whom we delegate) have rights to approve and integrate changes on all
+repositories.
+
+
 ## Administrative tasks
 
 ### Setting up new users
