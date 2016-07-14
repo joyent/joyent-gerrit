@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #
-# import-github-project GITHUB_ACCOUNT REPO_NAME [USER]: imports the given
+# crimport REPO_GITHUB_ACCOUNT REPO_NAME [GERRIT_USER]: imports the given
 # repository into gerrit.  See the usage message for details.
 #
 
@@ -11,9 +11,10 @@
 
 # DNS name or IP address of Gerrit server
 igp_gerrit_host=cr.joyent.us
-
+# Group name for Gerrit superusers
+igp_gerrit_group="Temporary Git Superusers"
 # Temporary directory for cloned project
-igp_tmproot="${TMPDIR-/var/tmp}/import-github-project-$$"
+igp_tmproot="${TMPDIR-/var/tmp}/crimport-$$"
 
 #
 # Runtime state
@@ -35,25 +36,33 @@ igp_gh_repo=
 # Gerrit project name.  This is constructed from the GitHub parameters.
 igp_gerrit_project=
 
+# Gerrit username.  This is reported by the server.
+igp_gerrit_username=
+
 # Directory into which the source repository is cloned.
 igp_clonedir=
 
 function usage
 {
 	cat <<EOF >&2
-usage: import-github-project GITHUB_ACCOUNT REPO_NAME [GERRIT_USER]
+usage: crimport REPO_GITHUB_ACCOUNT REPO_NAME [GERRIT_USER]
 
 This tool copies a GitHub repository at
 
-    https://github.com/GITHUB_ACCOUNT/REPO_NAME
+    https://github.com/REPO_GITHUB_ACCOUNT/REPO_NAME
 
 to a new project on the Joyent Gerrit server at $igp_gerrit_host.  The new
 Gerrit project will be configured to replicate back to GitHub.
 
+REPO_GITHUB_ACCOUNT may be either an individual GitHub account or a GitHub
+organization.
+
 If GERRIT_USER is provided, then that username is used when pushing over ssh to
 Gerrit.
 
-This tool must be run as a Gerrit administrator.
+This tool must be run as a Gerrit administrator.  It will temporarily add you to
+the list of Git Superusers in order to do the import, and it will remove you
+from that group upon completion.
 EOF
 	exit 2
 }
@@ -83,6 +92,10 @@ function main
 		igp_gerrit_sshhost="$igp_gerrit_host"
 	fi
 
+	echo -n "Detecting your Gerrit username ... "
+	igp_gerrit_configure || fail "failed"
+	echo "$igp_gerrit_username"
+
 	echo "Cloning github.com repository $igp_gerrit_project into " \
 	    "\"$igp_clonedir\"" >&2
 	mkdir "$igp_tmproot" || fail "failed to mkdir \"$igp_tmproot\""
@@ -94,9 +107,23 @@ function main
 	    "http://github.com/$igp_gh_account/$igp_gh_repo" ||
 	    fail "failed to create Gerrit project"
 
+	#
+	# Fortunately, adding and removing members using this interface is
+	# idempotent, so we don't need to check first.
+	#
+	echo -n "Adding '$igp_gerrit_username' to" \
+	    "group \"$igp_gerrit_group\" ... "
+	igp_gerrit set-members "'$igp_gerrit_group'" \
+	    --add "$igp_gerrit_username" || fail "failed"
+
 	echo "Pushing existing changes to Gerrit project" >&2
 	igp_gerrit_push "$igp_clonedir" "$igp_gerrit_project" || \
 	    fail "failed to push changes"
+
+	echo -n "Removing '$igp_gerrit_username' from" \
+	    "group \"$igp_gerrit_group\" ... "
+	igp_gerrit set-members "'$igp_gerrit_group'" \
+	    --remove "$igp_gerrit_username" || fail "failed"
 
 	cat <<EOF
 Success!  The following project has been created on the Gerrit server:
@@ -114,7 +141,7 @@ EOF
 
 function fail
 {
-	echo "import-github-project: $@" >&2
+	echo "crimport: $@" >&2
 	exit 1
 }
 
@@ -196,8 +223,30 @@ function igp_gerrit_push
 
 	git remote add cr git+ssh://$igp_gerrit_sshhost/$2.git
 	git push cr master
-	git push cr --tags
 	) || fail "failed to push to Gerrit"
 }
+
+#
+# igp_gerrit_configure: determine the current Gerrit username based on what the
+# server reports when we try to use it.  If the user specified a username
+# argument, this is redundant.  But they may not have, and this approach will
+# always report whatever username we're using to access the server.
+#
+# The actual approach leaves something to be desired, but Gerrit doesn't provide
+# the equivalent of who(1) or id(1).  On the plus side, this output should be
+# stable enough for use here.
+#
+function igp_gerrit_configure
+{
+	igp_gerrit_username=$(ssh $igp_gerrit_sshhost 2>&1 | \
+	   grep '^\s\+git clone.*REPOSITORY_NAME.git\s*$' | \
+	   sed -e s'#.*ssh://\(.*\)@.*#\1#') ||
+	   fail "failed to parse out Gerrit username"
+
+	if [[ -z "$igp_gerrit_username" ]]; then
+		fail "failed to discover Gerrit username"
+	fi
+}
+
 
 main "$@"

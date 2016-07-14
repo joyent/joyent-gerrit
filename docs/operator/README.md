@@ -45,12 +45,25 @@ other groups that get privileges (e.g., "Change Approver Role").
 "illumos mergers" are people who merge upstream changes from illumos into
 illumos-joyent.  They need privileges to push merge commits to illumos-joyent.
 
-"Administrators" are essentially super-users, both in the UI and via git.  This
-overrides most of the checks we have put in place (and would like to put in
-place) to avoid things like accidentally pushing to master.  People should not
-need to be administrators in order to do day-to-day work.  We should only add
-people to this group in order to help maintain cr.joyent.us, not to work around
-some other access control issue.
+"Administrators" are essentially super-users in the Gerrit UI.  People should
+not need to be administrators in order to do day-to-day work.  We should only
+add people to this group in order to help maintain cr.joyent.us, not to work
+around some other access control issue.  In Gerrit's default configuration,
+administrators are also super-users in Git (able to force-push, push to master,
+and so on), but we have removed those privileges from this group to make it
+harder for administrators to accidentally do these things.  If you need these
+Git privileges, see the "Temporary Git Superusers" group.
+
+"Temporary Git Superusers" are users with privileges to do all the git
+operations that we normally don't want people to do: push directly to master
+(bypassing review), force-pushing, pushing merge commits, and so on.  This group
+is expected to be empty most of the time.  If you need to do one of these
+operations (e.g., to import a repository), you can add yourself to this group,
+do the operation, **and then remove yourself from the group**.  Obviously, this
+group doesn't buy additional security, since any administrator can add
+themselves to it.  It's just to prevent administrators from accidentally
+overriding the safeties.
+
 
 #### Groups used by the infrastructure
 
@@ -93,8 +106,8 @@ Approver Role".  See "Access Control" below.
 to get the settings right, and we likely won't discover if they're wrong until
 something bad has already happened.
 
-Use the [import-github-project script](../../bin/import-github-project) script
-inside this repository to import a repository from GitHub.  This script:
+Use the [crimport](../../bin/crimport) script inside this repository to import a
+repository from GitHub.  This script:
 
 - creates a new Gerrit project with appropriate settings, including replication
   to GitHub
