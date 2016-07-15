@@ -17,6 +17,11 @@ Important notes about this image:
   the backup, and then deploys this image attached to that container.
 * Due to [DOCKER-774](https://smartos.org/bugview/DOCKER-774), this image cannot
   currently be built on Triton.
+* To work around [TOOLS-1486](https://devhub.joyent.com/jira/browse/TOOLS-1486),
+  this image currently uses a custom Joyent-specific build of Gerrit, rather
+  than a stock release build.  More detail appears below in the
+  [Gerrit Releases and Custom Builds](#gerrit-releases-and-custom-builds)
+  section.
 
 
 ## Gerrit configuration
@@ -67,3 +72,28 @@ As mentioned above, configuration that is not deployment-specific is
 deliberately not supported through environment variables.  You have to modify
 the config in this repository, build a new image, and redeploy that in order to
 change that.
+
+## Gerrit Releases and Custom Builds
+
+Gerrit releases are generally made available through [the Gerrit web site]
+(https://www.gerritcodereview.com/).  The `Dockerfile` uses an internal
+environment variable, `GERRIT_WAR_URL`, to prescribe the location from which the
+`gerrit.war` artefact will be obtained.  Ordinarily, this will point at a stock
+binary release from the Gerrit project itself.  At times, the URL may be
+overridden to a Joyent-specific build that includes fixes that have not yet
+been made available in a full public release.
+
+There is a Joyent fork of Gerrit available in the Github repository
+[joyent/gerrit](https://github.com/joyent/gerrit).  At the time of writing,
+this repository included a `joyent-2.12.2` branch with the fix for
+[an authentication issue primarily seen when using multiple tabs]
+(https://gerrit-review.googlesource.com/#/c/74830/2).  A `v2.12.2-joyent1`
+tag was created, from which the [Gerrit Release WAR file]
+(https://gerrit-documentation.storage.googleapis.com/Documentation/2.12.3/dev-buck.html#release)
+build instructions were followed to produce a WAR file then stored in Manta.
+
+By altering the `GERRIT_WAR_URL` in the `Dockerfile`, either this custom build,
+or any other Gerrit WAR file, can be included in place of the stock release.
+Note that when changing from one version to another, it is important to ensure
+that any included plugins (obtained via `GERRITFORGE_URL` or similar) match the
+custom WAR file in use.
