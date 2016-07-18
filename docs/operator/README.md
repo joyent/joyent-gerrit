@@ -223,6 +223,8 @@ advertises itself as "cr.joyent.us" and has replication to GitHub enabled.  In
 "dev" mode, the server advertises itself as "localhost".  To use it, you would
 typically set up port forwarding on your local system.
 
+**Backing up the stack:**
+
 To back up the stack:
 
     # Stop the application container to get a consistent backup.
@@ -236,15 +238,70 @@ To back up the stack:
 The containers representing the service are automatically located by name (e.g.,
 "gerrit-appserver") using the "docker" tool.
 
-To create a new test environment from a backup, you would typically run:
+Production backups are stored in Manta under
+`/Joyent_Dev/stor/backups/cr.joyent.us`.  You'll need to download one of these
+backup directories to use them with the `crrestore` tool.
 
-    crrestore -c CLIENT_ID -s CLIENT_SECRET ./2016-06-12-0
+**Creating a test environment:**
 
-where CLIENT\_ID and CLIENT\_SECRET come from a GitHub oauth application that
-you've set up for testing.  This is necessary because the GitHub application
-configuration specifies what server it's for (e.g., https://cr.joyent.us) and
-redirects clients to that server, so you cannot use the same one for testing
-that we use in production.
+To create a new test environment from a backup, you'll first need to create a
+GitHub oauth application that you can use for testing.  This is necessary
+because the GitHub application configuration specifies where to redirect clients
+after authentication (e.g., https://cr.joyent.us), and that value is necessarily
+different for your test environment than for production.
+
+You can set up the application in GitHub under your "Settings", under "OAuth
+applications" on the left, then the "Developer Applications" tab, then the
+"Register a new application" button.  The key piece of data is the
+"Authorization callback URL", which should be "https://localhost" to match the
+configuration for a test deployment.  You can reuse this application for all of
+your testing.
+
+To deploy the test stack from a backup on Triton, use:
+
+    $ crrestore -n gerrit-test -c CLIENT_ID -s CLIENT_SECRET /path/to/local/backup/directory
+
+where CLIENT\_ID and CLIENT\_SECRET come from the GitHub OAuth application that
+you set up above.  You can leave off the "-n" option to have the tool pick a
+likely-unique prefix instead.  `/path/to/local/backup/directory` is the path to
+a directory on your system containing a backup created with crbackup.
+
+The advertised hostname of the test deployment is `localhost`.  The service
+exposes ports 443 (HTTPS) for access to the web application and 22 (SSH) for a
+captive CLI interface to Gerrit.  To use these in the way that the service
+advertises them, you'll need to forward TCP connections made to port 443 on the
+localhost interface of your workstation to port 443 of the "frontdoor" container
+IP.  You'll also need to forward port 30023 on the same interface to port 22 on
+the same container IP.  (You can pick another ssh port if you want, but the web
+UI is configured to advertise 30023.  You can also pick another HTTPS port, but
+you'll need to update your GitHub OAuth application's configuration
+accordingly.)
+
+You can obtain the container's IP using `docker inspect`:
+
+    $ docker inspect gerrit-test-frontdoor | json 0.NetworkSettings.IPAddress
+    10.0.0.35
+
+ssh provides an easy way to forward the ports by connecting to your own
+workstation and setting up a tunnel:
+
+    $ sudo ssh -L443:10.0.0.35:443 -L30023:10.0.0.35:22 localhost
+
+This will allow you to use `https://localhost` in the browser to access the
+Gerrit web interface and to use ssh to port 30023 on localhost to access the ssh
+interface (including git).  The "crrestore" tool configures the application to
+advertise the corresponding HTTPS and SSH ports on localhost when it displays
+instructions to end users.
+
+**Implementation note:** Instead of using localhost, we could change this to
+use any other non-public DNS name and document that people update /etc/hosts
+with the DNS name in order to use it.  This might be more flexible (and
+clearer), but requires that extra step.  You cannot just use IP addresses
+because you have to tell the Gerrit server at deployment-time which hostname or
+IP address to advertise on.
+
+
+**Creating a production deployment:**
 
 For a production deployment, you'd leave out the "-c" and "-s" flags and add
 "-p" (for "production").  It's recommended that you use "-n gerritDATESTAMP" to
@@ -293,8 +350,6 @@ production version, and even then it won't work until after "cr.joyent.us"
 points to the new nginx container.  At that point, it _should_ work, but we've
 seen cases where it didn't.  In that case, try "docker exec" into the frontdoor
 container and send SIGHUP to the nginx process.
-
-
 
 ## References
 
