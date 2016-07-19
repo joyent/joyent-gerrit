@@ -419,12 +419,12 @@ your confidence in its correctness.  Votes under this label can take the values
  * A "+1" vote (Looks good to me) indicates that the change has your full
    confidence and is ready to be considered for approval as-is.
 
-The second label is named *Approval*.  Only users who have been added to the
-Change Approver Role may vote on this label (though at present this includes all
-Joyent staff).  It is used to indicate that you have reviewed the process and
-risk around this change and assessed it as ready to integrate.  In particular,
-some of the factors that may be involved in deciding on an appropriate
-*Approval* vote:
+The second label is named *Integration-Approval*.  Only users who have been
+added to the Change Approver Role may vote on this label (though at present this
+includes all Joyent staff).  It is used to indicate that you have reviewed the
+process and risk around this change and assessed it as ready to integrate.  In
+particular, some of the factors that may be involved in deciding on an
+appropriate *Integration-Approval* vote:
 
  * Are there any outstanding -1 Code-Review scores whose concerns have not
    been dealt with?  Any reviewers who were added and never replied?
@@ -438,21 +438,21 @@ some of the factors that may be involved in deciding on an appropriate
    not an exhaustive list), especially if it's a concern from the maintainer's
    perspective rather than the developer's.
 
-Votes under the *Approval* label can take the values -1, 0, or +1:
+Votes under the *Integration-Approval* label can take the values -1, 0, or +1:
 
  * A "-1" vote (Rejected/Veto) should be rarely used, but constitutes a
    maintainer veto on the change.  Such a vote blocks integration of the change
    permanently unless the voter later rescinds their decision.
  * A "0" vote (Not assessed yet) is used either to indicate that the change has
-   not yet been assessed for Approval, or used by a potential Approver to
+   not yet been assessed for Integration-Approval, or used by a potential Approver to
    ask a question or provide minor comments.
  * A "+1" vote (Approved, ready to integrate) approves the change and marks it
    ready for integration.
 
-Note that actually integrating the change is a separate step to the +1 Approval
-vote.  This step can be taken by any member of the Change Approver Role.  It is
-considered acceptable in many cases for the approver to also be a code reviewer
-for the change.
+Note that actually integrating the change is a separate step to the +1
+Integration-Approval vote.  This step can be taken by any member of the Change
+Approver Role.  It is considered acceptable in many cases for the approver to
+also be a code reviewer for the change.
 
 Any "-1" votes in either dimension are "sticky" - i.e. if the change is amended
 (a new patchset is uploaded), the vote still affects the new patchset until
@@ -463,10 +463,11 @@ be reapplied after changes.  Trivial amendments include a change to the commit
 message or a clean rebase.
 
 For a change to be able to be integrated, it must receive one current "+1" vote
-in both the *Code-Review* and *Approval* dimensions, and no "-1" votes in the
-Approval dimension.  A "-1" vote in Code-Review does not block an otherwise
-approved change from being integrated, but any "-1" in Approval does (even
-if, for example, there is a later "+1" in Approval).
+in both the *Code-Review* and *Integration-Approval* dimensions, and no "-1"
+votes in the Integration-Approval dimension.  A "-1" vote in Code-Review does
+not block an otherwise approved change from being integrated, but any "-1" in
+Integration-Approval does (even if, for example, there is a later "+1" in
+Integration-Approval).
 
 In general, we consider this policy to be the formalization of what is
 existing best practice at Joyent.  We're not looking to make significant changes
