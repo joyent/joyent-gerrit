@@ -396,38 +396,87 @@ but we can still enforce push restrictions to avoid the above problem.
 
 ### What are the exact policies around code review and voting?
 
-Please review the [Gerrit semantics around voting on changes](https://cr.joyent.us/Documentation/config-labels.html#label_Code-Review).  As a quick review:
+To encourage discussion about test plan, risk analysis, and other non-code
+considerations in additional to regular code review, our Gerrit is configured to
+provide separate scores for code review and change approval.
 
-* Votes are -2, -1, 0, +1, or +2.
-* A "-2" vote is a veto: it means you're absolutely not okay with the change.
-* A "-1" vote is a less strong wait to vote against a change.  It means you're
-  not happy with it as-is, but you're not actually vetoing the change.
-* A "+1" vote is a thumbs-up: you're happy with the change as-is, but you want
-  someone else to approve it.
-* A "+2" vote is an approval to integrate the change.
-* "0" is a way of leaving feedback without expressing an opinion on the change.
-* Votes do not get added together.  Two +1s do not make a +2, for example.  You
-  need someone to actually "+2" it to have a +2.
+These two scores come in the form of Gerrit "labels", which can be likened to
+dimensions along which the change is measured.  Reviewers may vote in each
+dimension separately as allowed by their user rights.  Note that this is
+different to the standard Gerrit configuration as described on much of the
+Internet - particularly, we do not have any "+2" scores.
 
-We're using the default Gerrit policy for submission, which means that in order
-to submit a change (i.e., to integrate it into master):
+The first of these two labels is *Code-Review*.  This dimension is used to record
+your satisfaction with the quality of the code and design in the change, and
+your confidence in its correctness.  Votes under this label can take the values
+-1, 0 or +1:
 
-* There must be at least one +2 vote.
-* There must be no -2 votes.
+ * A "-1" vote (Should not integrate as-is) is a vote against a change as it
+   stands: without amendment you are not happy to see this change integrated.
+ * A "0" vote (No score yet) can either mean that you have not yet reviewed the
+   change, or can be used for minor questions or suggestions that you have which
+   should not block integration.
+ * A "+1" vote (Looks good to me) indicates that the change has your full
+   confidence and is ready to be considered for approval as-is.
 
-In our deployment, the voting gets reset when somebody submits a new patchset.
-If you change the code, you need reviewers to take another look.  The only
-exception is for patchsets that only affect the commit messages.  Votes are
-preserved when a new patchset is submitted that only changes the commit message.
+The second label is named *Approval*.  Only users who have been added to the
+Change Approver Role may vote on this label (though at present this includes all
+Joyent staff).  It is used to indicate that you have reviewed the process and
+risk around this change and assessed it as ready to integrate.  In particular,
+some of the factors that may be involved in deciding on an appropriate
+*Approval* vote:
 
-We're not looking to make significant changes from our existing policy.  The
-expectation is that all new code changes for Triton and Manta get reviewed by at
-least one other person.  Any member of the engineering team (and any community
-members to whom we delegate access) can +2 any change to any repository.  That
-means you can even +2 your own change.  But the expectation is that people will
-seek out feedback from others (even if there's nobody else who's very familiar
-with the code).
+ * Are there any outstanding -1 Code-Review scores whose concerns have not
+   been dealt with?  Any reviewers who were added and never replied?
+ * Did the proposer or reviewers of the change test it to your satisfaction?
+   (This may not be applicable to all changes)
+ * Does the list of reviewers include everyone you think should be consulted
+   on this change? (Is there an established owner or expert in this subsystem?)
+ * Is this change too great a risk to a critical subsystem for the improvement
+   it embodies?
+ * Anything else that is not considered directly in Code-Review itself (this is
+   not an exhaustive list), especially if it's a concern from the maintainer's
+   perspective rather than the developer's.
 
+Votes under the *Approval* label can take the values -1, 0, or +1:
+
+ * A "-1" vote (Rejected/Veto) should be rarely used, but constitutes a
+   maintainer veto on the change.  Such a vote blocks integration of the change
+   permanently unless the voter later rescinds their decision.
+ * A "0" vote (Not assessed yet) is used either to indicate that the change has
+   not yet been assessed for Approval, or used by a potential Approver to
+   ask a question or provide minor comments.
+ * A "+1" vote (Approved, ready to integrate) approves the change and marks it
+   ready for integration.
+
+Note that actually integrating the change is a separate step to the +1 Approval
+vote.  This step can be taken by any member of the Change Approver Role.  It is
+considered acceptable in many cases for the approver to also be a code reviewer
+for the change.
+
+Any "-1" votes in either dimension are "sticky" - i.e. if the change is amended
+(a new patchset is uploaded), the vote still affects the new patchset until
+revisited by the original voter.
+
+Any "+1" votes are not sticky (except where the amendment is trivial), and must
+be reapplied after changes.  Trivial amendments include a change to the commit
+message or a clean rebase.
+
+For a change to be able to be integrated, it must receive one current "+1" vote
+in both the *Code-Review* and *Approval* dimensions, and no "-1" votes in the
+Approval dimension.  A "-1" vote in Code-Review does not block an otherwise
+approved change from being integrated, but any "-1" in Approval does (even
+if, for example, there is a later "+1" in Approval).
+
+In general, we consider this policy to be the formalization of what is
+existing best practice at Joyent.  We're not looking to make significant changes
+to how review is done.  The basic expectation is that all new code changes for
+Triton and Manta get reviewed by at least one other person.  Any member of the
+engineering team (and any community members to whom we delegate access) can act
+in the role of Change Approver - and Approving your own change is justified
+in some circumstances.  But the expectation is that people will seek out
+feedback from others (even if there's nobody else who's very familiar with the
+code).
 
 ### How will we handle changes that need to be kept secret (e.g., security fixes)?
 
