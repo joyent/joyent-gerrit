@@ -14,13 +14,16 @@ ENV GERRIT_RELEASEURL         https://gerrit-releases.storage.googleapis.com
 #ENV GERRIT_WAR_URL            ${GERRIT_RELEASEURL}/gerrit-${GERRIT_VERSION}.war
 
 #
-# Work around "https://gerrit-review.googlesource.com/#/c/74830/2" by using
-# a custom build of 2.12.2 with the upstream fix for this issue included
-# as well.  Once a release that includes this fix is available, we should
-# switch back to using official Gerrit release artefacts.
+# Work around several issues by using a custom build of 2.12.2 with the
+# upstream fixes included.  Once a release that includes these fixes is
+# available, we should switch back to using official Gerrit release artefacts.
+#
+# Current included workarounds:
+#     https://gerrit-review.googlesource.com/#/c/74830
+#     https://gerrit-review.googlesource.com/#/c/75987
 #
 ENV GERRIT_OVERRIDEURL        https://us-east.manta.joyent.com/Joyent_Dev/public/gerrit/custom
-ENV GERRIT_WAR_URL            ${GERRIT_OVERRIDEURL}/gerrit-2.12.2-joyent1.war
+ENV GERRIT_WAR_URL            ${GERRIT_OVERRIDEURL}/gerrit-2.12.2-joyent2.war
 
 ENV PLUGIN_VERSION            stable-2.12
 ENV GERRITFORGE_URL           https://gerrit-ci.gerritforge.com
