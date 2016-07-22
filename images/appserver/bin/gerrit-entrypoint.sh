@@ -201,6 +201,21 @@ function main
 	fi
 
 	#
+	# These files should be symlinks in the volume container, but were never
+	# in the container before, so don't need to be archived like the ones
+	# above.
+	#
+	if ! [[ -L "$GERRIT_SITE"/etc/GerritSite.css ]]; then
+		ln -s "$GERRIT_HOME/shipped/theme/GerritSite.css" \
+		    "$GERRIT_SITE/etc/GerritSite.css"
+	fi
+
+	if ! [[ -L "$GERRIT_SITE"/etc/GerritSiteHeader.html ]]; then
+		ln -s "$GERRIT_HOME/shipped/theme/GerritSiteHeader.html" \
+		    "$GERRIT_SITE/etc/GerritSiteHeader.html"
+	fi
+
+	#
 	# Historically, the Gerrit user's numeric uid changed across different
 	# image versions, though we've now settled on one that's encoded in the
 	# Dockerfile.  For now, make sure everything is owned by the right user.

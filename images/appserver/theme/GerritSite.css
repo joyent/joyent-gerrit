@@ -1,0 +1,12 @@
+/*
+ * See the Gerrit documentation for information about this file.
+ */
+table.crjHeader {
+	width: 100%;
+	position: fixed;
+	right: 5px;
+	top: 35px;
+
+	font-weight: bold;
+	text-align: right;
+}

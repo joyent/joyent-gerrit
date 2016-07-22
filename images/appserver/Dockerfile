@@ -90,6 +90,7 @@ RUN  set -o xtrace && \
 #
 COPY ./etc/gerrit.config.base ${GERRIT_HOME}/shipped/gerrit.config.base
 COPY ./etc/replication.config ${GERRIT_HOME}/shipped/replication.config
+COPY ./theme ${GERRIT_HOME}/shipped/theme
 
 #
 # Configure the entrypoint (which runs every time) and the default start
