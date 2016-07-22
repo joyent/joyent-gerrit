@@ -118,6 +118,12 @@ function main
 	gr_backup_path="$1"
 	gr_configure || fail "failed to configure"
 
+	echo "Pulling latest copies of cr.joyent.us images ... "
+	if ! docker pull $gr_image_appserver ||
+	   ! docker pull $gr_image_frontdoor; then
+	   	fail "failed"
+	fi
+
 	echo -n "Creating database volume container ... "
 	docker run --name=$gr_name_volume_db \
 	    -v /gerrit-postgres-db-data $gr_image_volumes \
