@@ -262,10 +262,11 @@ thing is to have one of them do this for you.
 Once a repository has been imported:
 
 * **All subsequent pushes should go through Gerrit.**  People should stop
-  pushing to the GitHub copy.  Please notify people who might push to the
-  repository (e.g., by emailing "devs").  Ideally, we would turn off the ability
-  to push to GitHub, but we have not written any tooling or documentation for
-  this yet.
+  pushing to the GitHub copy.  Please notify the internal teams by emailing
+  "devs" and notify the external developer community by updating the repo
+  contribution guidelines ([boilerplate](https://mo.joyent.com/eng/blob/master/README.md)).
+  Ideally, we would turn off the ability to push to GitHub, but we have not
+  written any tooling or documentation for this yet.
 * Any changes pushed to "master" in Gerrit will be replicated to GitHub.
 * GitHub remains the repository of record for automated builds and other
   tooling.
