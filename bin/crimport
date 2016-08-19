@@ -130,9 +130,9 @@ Success!  The following project has been created on the Gerrit server:
 
     https://$igp_gerrit_host/#/admin/projects/$igp_gerrit_project
 
-To make sure replication to GitHub will work, please make sure that the Joyent
-"Engineering" team on GitHub has write access to the GitHub project by visiting
-this page:
+To make sure replication to GitHub will work, please make sure that the
+"Joyent Engineering" team on GitHub has write access to the GitHub project
+by visiting this page:
 
     https://github.com/$igp_gerrit_project/settings/collaboration
 
