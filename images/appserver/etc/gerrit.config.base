@@ -37,16 +37,6 @@
 [cache]
 	directory = cache
 
-#
-# The "web_sessions" cache tracks open user sessions.  These effectively map a
-# cookie in your browser back to an identity.  The maximum age of entries in
-# this cache determines how often a user must sign in again.  A value of 0
-# allows entries to remain in the cache until it fills, at which point the
-# oldest entries will be purged.
-#
-[cache "web_sessions"]
-	maxAge = 0
-
 [plugins]
 	allowRemoteAdmin = true
 
