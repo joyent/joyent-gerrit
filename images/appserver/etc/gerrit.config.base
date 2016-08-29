@@ -37,6 +37,18 @@
 [cache]
 	directory = cache
 
+#
+# The "web_sessions" cache tracks open user sessions.  These effectively map a
+# cookie in your browser back to an identity.  The maximum age of entries in
+# this cache determines how often a user must sign in again.
+#
+# Note that the Gerrit documentation suggests that a value of 0 will allow
+# entries to remain in the cache until it fills.  This appears to not to be the
+# case in practice.  Instead, we have selected a large positive value.
+#
+[cache "web_sessions"]
+	maxAge = 1 y
+
 [plugins]
 	allowRemoteAdmin = true
 
