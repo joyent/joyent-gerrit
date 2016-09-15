@@ -2,10 +2,10 @@
  * See the Gerrit documentation for information about this file.
  */
 table.crjHeader {
-	width: 100%;
 	position: fixed;
 	right: 5px;
-	top: 35px;
+	top: 27px;
+	width: 300px;
 
 	font-weight: bold;
 	text-align: right;
