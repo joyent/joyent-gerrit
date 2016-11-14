@@ -16,6 +16,7 @@
 
 [index]
 	type = LUCENE
+	threads = 1
 
 [auth]
 	type = OAUTH
