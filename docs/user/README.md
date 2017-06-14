@@ -117,10 +117,12 @@ administrator to take action to get your account set up.
 
        Connection to cr.joyent.us closed.
 
-  If you have trouble with this, see "Getting help" above.
+   If you have trouble with this, [contact one of these
+   administrators](https://cr.joyent.us/#/admin/groups/1,members).
 
-* Have an administrator add your account to the appropriate groups inside
-  Gerrit.  See "Getting help" above.
+6. Have [one of these
+   administrators](https://cr.joyent.us/#/admin/groups/1,members) add your
+   account to the appropriate groups inside Gerrit.
 
 Now that you're ready to start using Gerrit, check out the [Gerrit User
 Guide](https://cr.joyent.us/Documentation/intro-user.html).
@@ -217,13 +219,19 @@ patchset (or any previous patchset).
 
 When we're satisfied with everything, we're ready to **submit the change**,
 which is (somewhat confusingly) the Gerrit terminology for integrating the
-change into "master".  To enable this, the change needs at least one "+2" vote.
-Even with a "+2", Gerrit will only allow changes to be integrated that can be
-fast-forwarded onto "master".  If someone else has changed "master" in the
-meantime, we'll need to update the change to apply cleanly to master.
+change into "master".  To enable this, the change needs a "+1" vote in the
+"Integration Approval" category.  This is separate from any number of "+1" votes
+under "Code Review".
 
-Once someone has given your change the "+2", the "Submit" button shows up, and
-we can can hit that to integrate the change into master.  The change should be
+Even with the requisite "+1" votes, Gerrit will only allow changes to be
+integrated that can be fast-forwarded onto "master".  If someone else has
+changed "master" in the meantime, we'll need to update the change to apply
+cleanly to master.
+
+Once your change has +1s for both Code Review and Integration Approval, assuming
+you have the appropriate permissions to integrate the change (see the New User
+Instructions), then you should see the "Submit change" button show up.  Clicking
+that button will integrate the change into master.  The change should be
 replicated to GitHub within about 30 seconds.
 
 
