@@ -117,10 +117,15 @@ something bad has already happened.
 Use the [crimport](../../bin/crimport) script inside this repository to import a
 repository from GitHub.  This script:
 
+- configures the GitHub repository to only allow Gerrit to push to master
 - creates a new Gerrit project with appropriate settings, including replication
   to GitHub
 - clones the repository from GitHub
 - pushes the repository to Gerrit
+
+Before running this script you will need to [create a GitHub API token](https://github.com/settings/tokens)
+and place it into a `~/.github-api-token` file locally, so that the script can
+take care of updating GitHub.
 
 **Note:** the script may report problems pushing tags or non-master branches.
 We haven't figured out yet how we're going to deal with these branches, but the

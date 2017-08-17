@@ -15,6 +15,14 @@ igp_gerrit_host=cr.joyent.us
 igp_gerrit_group="Temporary Git Superusers"
 # Temporary directory for cloned project
 igp_tmproot="${TMPDIR-/var/tmp}/crimport-$$"
+# URL for accessing Github API
+igp_github_api="https://api.github.com"
+# Location of file containing user's Github API token
+igp_github_token_file=~/.github-api-token
+# User that Gerrit uses to push to Github
+igp_github_gerrit_user="joyent-automation"
+# Slug for the "Joyent Engineering" team
+igp_github_eng_slug="joyent-engineering"
 
 #
 # Runtime state
@@ -45,7 +53,7 @@ igp_clonedir=
 function usage
 {
 	cat <<EOF >&2
-usage: crimport REPO_GITHUB_ACCOUNT REPO_NAME [GERRIT_USER]
+usage: crimport [-A] REPO_GITHUB_ACCOUNT REPO_NAME [GERRIT_USER]
 
 This tool copies a GitHub repository at
 
@@ -60,9 +68,13 @@ organization.
 If GERRIT_USER is provided, then that username is used when pushing over ssh to
 Gerrit.
 
-This tool must be run as a Gerrit administrator.  It will temporarily add you to
-the list of Git Superusers in order to do the import, and it will remove you
-from that group upon completion.
+This tool must be run as a Gerrit and GitHub administrator.  It will temporarily
+add you to the list of Git Superusers in order to do the import, and it will
+remove you from that group upon completion.
+
+In order to give the tool access to GitHub, you must place a GitHub API token
+in ~/.github-api-token. (If for some reason you need to skip updating the GitHub
+repository's settings, use -A to skip that step.)
 EOF
 	exit 2
 }
@@ -70,6 +82,16 @@ EOF
 function main
 {
 	trap igp_cleanup exit
+
+	local SKIP_GH=
+	while getopts ":Ah" opt; do
+		case $opt in
+			A) SKIP_GH=true;;
+			h) usage;;
+			?) fail "invalid option: -$OPTARG";;
+		esac
+	done
+	shift $((OPTIND-1))
 
 	if [[ $# != 2  && $# != 3 ]]; then
 		usage
@@ -90,6 +112,11 @@ function main
 		igp_gerrit_sshhost="$3@$igp_gerrit_host"
 	else
 		igp_gerrit_sshhost="$igp_gerrit_host"
+	fi
+
+	if [[ -z $SKIP_GH ]]; then
+		echo "Setting up Github repo for Gerrit pushes ... "
+		igp_github_protect $igp_gh_account $igp_gh_repo
 	fi
 
 	echo -n "Detecting your Gerrit username ... "
@@ -210,6 +237,119 @@ function igp_github_clone
 }
 
 #
+# igp_github_protect ACCOUNT REPONAME
+#
+# Adds branch protection to the Github repo to ensure only Gerrit can
+# push to the "master" branch.
+#
+function igp_github_protect
+{
+	if [[ ! $1 =~ ^[-a-zA-Z0-9_]+$ ]] ||
+	   [[ ! $2 =~ ^[-a-zA-Z0-9_]+$ ]]; then
+		fail "bogus account or repo name!"
+	fi
+
+	if [[ ! -f $igp_github_token_file ]]; then
+		fail "couldn't find $igp_github_token_file"
+	fi
+
+	local TOKEN="$(cat $igp_github_token_file)"
+	local BRANCH="master"
+	local PREVIEW_HEADER="Accept: application/vnd.github.loki-preview+json"
+	local UNIQUE="$RANDOM$RANDOM$RANDOM:"
+
+	# Check that the Gerrit user is able to push
+	local PERM_RESULT
+	PERM_RESULT=$(curl -s --write-out "$UNIQUE%{http_code}\n" \
+	    -u "$TOKEN:x-oauth-basic" -X GET \
+	    "$igp_github_api/repos/$1/$2/collaborators/$igp_github_gerrit_user/permission")
+	if [[ $? != 0 ]]; then
+		fail "couldn't get permissions for $igp_github_gerrit_user"
+	fi
+
+	local PERM_INFO=$(grep -v "^$UNIQUE" <<< "$PERM_RESULT")
+	local STATUS=$(grep "^$UNIQUE" <<< "$PERM_RESULT" | cut -d: -f2)
+
+	if [[ $STATUS != "200" ]]; then
+		fail "couldn't get permissions (HTTP status code $STATUS)"
+	fi
+
+	local PERM=$(json permission <<< "$PERM_INFO")
+	if [[ $PERM != "write" && $PERM != "admin" ]]; then
+		fail "$igp_github_gerrit_user needs push access to $1/$2"
+	fi
+
+	# Set branch protection on master, so that only Gerrit can push.
+	curl -fsS -u "$TOKEN:x-oauth-basic" -H "$PREVIEW_HEADER" -X PUT -d@- \
+	    "$igp_github_api/repos/$1/$2/branches/$BRANCH/protection" \
+	    > /dev/null <<-EOF
+		{
+		    "required_status_checks": {
+		        "strict": true,
+		        "contexts": [ ]
+		    },
+		    "enforce_admins": true,
+		    "restrictions": {
+		        "users": [
+		            "$igp_github_gerrit_user"
+		        ],
+		        "teams": []
+		    }
+		}
+	EOF
+	if [[ $? != 0 ]]; then
+		fail "failed to set branch protection"
+	fi
+
+	#
+	# Disable all but squash merging, to make it harder to accidentally do
+	# merge commits.
+	#
+	# Github doesn't allow completely disabling merge buttons, but we can
+	# at least restrict it enough to make it harder for anyone to do. In
+	# the future we could also create a bot that automatically marks all
+	# PRs as failing checks.
+	#
+	curl -fsS -u "$TOKEN:x-oauth-basic" -X PATCH -d@- \
+	    "$igp_github_api/repos/$1/$2" > /dev/null <<-EOF
+		{
+		    "name": "$2",
+		    "allow_squash_merge": true,
+		    "allow_merge_commit": false,
+		    "allow_rebase_merge": false,
+		    "has_projects": false
+		}
+	EOF
+	if [[ $? != 0 ]]; then
+		fail "failed to set branch protection"
+	fi
+
+	# Get the "Joyent Engineering" team's ID.
+	local TEAMS
+	TEAMS=$(curl -fsS -u "$TOKEN:x-oauth-basic" \
+	    "$igp_github_api/orgs/$1/teams")
+	if [[ $? != 0 ]]; then
+		fail "failed to list $1 teams"
+	fi
+
+	local JOYENT_ID=$(json -a \
+	    -c "this.slug === '$igp_github_eng_slug'" id <<< "$TEAMS")
+	if [[ -z $JOYENT_ID ]]; then
+		fail "failed to find Joyent Engineering team's ID"
+	fi
+
+	curl -fsS -u "$TOKEN:x-oauth-basic" -X PUT -d@- \
+	    "$igp_github_api/teams/$JOYENT_ID/repos/$1/$2" <<-EOF
+		{
+			"permission": "push"
+		}
+	EOF
+	if [[ $? != 0 ]]; then
+		fail "failed to grant Engineering push access to $1/$2"
+	fi
+}
+
+#
 # igp_gerrit_push REPO_PATH PROJECT_NAME
 #
 # For the local git repository at REPO_PATH, add a remote for the Gerrit project
@@ -239,7 +379,7 @@ function igp_gerrit_push
 function igp_gerrit_configure
 {
 	igp_gerrit_username=$(ssh $igp_gerrit_sshhost 2>&1 | \
-	   grep '^\s\+git clone.*REPOSITORY_NAME.git\s*$' | \
+	   grep '^ *git clone.*REPOSITORY_NAME.git' | \
 	   sed -e s'#.*ssh://\(.*\)@.*#\1#') ||
 	   fail "failed to parse out Gerrit username"
 
