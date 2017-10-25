@@ -196,8 +196,18 @@ change:
      create mode 100644 README.md
     Successfully rebased and updated refs/heads/master.
 
-And then I push that to the magical reference `refs/changes/12` (because this is
-a new PatchSet for Change 12):
+This will open a file that looks something like this:
+
+    pick 95a7c80 add initial README
+    pick f6eb4be forgot to add content
+
+Change `pick` to `squash` for the second commit like so:
+
+    pick 95a7c80 add initial README
+    squash f6eb4be forgot to add content
+
+Save and exit.  Then I push that to the magical reference `refs/changes/12`
+(because this is a new PatchSet for Change 12):
 
     dap@sharptooth my-playground $ git push cr HEAD:refs/changes/12
     Counting objects: 4, done.
