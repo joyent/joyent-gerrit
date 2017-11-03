@@ -67,11 +67,11 @@
 # trackers.
 #
 [commentlink "devjira"]
-	match = ([A-Z0-9]+-[0-9]+)
-	link = https://devhub.joyent.com/jira/browse/$1
+	match = "(^|\\s|[:.,\\(\\[\\{])([A-Z]+-[0-9]+)\\b"
+	html = "$1<a href=\"https://jira.joyent.us/browse/$2\">$2</a>"
 [commentlink "github"]
-	match = "([a-zA-Z0-9]+)/([-_a-zA-Z0-9]+)#([0-9]+)"
-	link = https://github.com/$1/$2/issues/$3
+	match = "(^|\\s|[:.,\\(\\[\\{])([a-zA-Z0-9]+)/([-_a-zA-Z0-9]+)#([0-9]+)\\b"
+	html = "$1<a href=\"https://github.com/$2/$3/issues/$4\">$2/$3#$4</a>"
 
 #
 # Clarify the purpose of some of the buttons on the Change screen.
