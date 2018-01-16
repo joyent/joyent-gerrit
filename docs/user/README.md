@@ -191,7 +191,7 @@ each revision a **PatchSet**.  In order to submit it, I need to squash my
 change:
 
     dap@sharptooth my-playground $ git rebase -i HEAD^^
-    [detached HEAD 920280c] initial README; forgot to add content
+    [detached HEAD 920280c] add initial README; forgot to add content
      1 file changed, 3 insertions(+)
      create mode 100644 README.md
     Successfully rebased and updated refs/heads/master.
@@ -201,10 +201,13 @@ This will open a file that looks something like this:
     pick 95a7c80 add initial README
     pick f6eb4be forgot to add content
 
-Change `pick` to `squash` for the second commit like so:
+Change `pick` to `fixup` for the second commit like so:
 
     pick 95a7c80 add initial README
-    squash f6eb4be forgot to add content
+    fixup f6eb4be forgot to add content
+
+(You can use `squash` instead if you really do want to keep the second
+commit message.)
 
 Save and exit.  Then I push that to the magical reference `refs/changes/12`
 (because this is a new PatchSet for Change 12):
@@ -218,7 +221,7 @@ Save and exit.  Then I push that to the magical reference `refs/changes/12`
     remote: Processing changes: updated: 1, refs: 1, done
     remote:
     remote: Updated Changes:
-    remote:   https://cr.joyent.us/12 initial README; forgot to add content
+    remote:   https://cr.joyent.us/12 add initial README
     remote:
     To ssh://davepacheco@cr.joyent.us/my-playground.git
      * [new branch]      HEAD -> refs/changes/12
