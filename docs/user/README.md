@@ -239,14 +239,21 @@ under "Code Review".
 Even with the requisite "+1" votes, Gerrit will only allow changes to be
 integrated that can be fast-forwarded onto "master".  If someone else has
 changed "master" in the meantime, we'll need to update the change to apply
-cleanly to master.
+cleanly to master: this can be done in Gerrit via "Rebase".
 
-Once your change has +1s for both Code Review and Integration Approval, assuming
-you have the appropriate permissions to integrate the change (see the New User
-Instructions), then you should see the "Submit change" button show up.  Clicking
-that button will integrate the change into master.  The change should be
-replicated to GitHub within about 30 seconds.
+Prior to integration, you will need to update the commit message with the
+appropriate "Reviewed by" and "Approved by" lines (without any blank lines). The
+[cr-update-reviewers](https://github.com/joyent/cr-update-reviewers) tool can
+help with this, as can the more comprehensive
+[grr](https://github.com/joyent/grr). Alternatively, this can be done with a
+`git commit --amend`, but be careful to re-push *only* this change, or Gerrit
+will drop the +1 I-A.
 
+Once your change has +1s for both Code Review and Integration Approval, and the
+commit message is updated, assuming you have the appropriate permissions to
+integrate the change (see the New User Instructions), then you should see the
+"Submit change" button show up.  Clicking that button will integrate the change
+into master.  The change should be replicated to GitHub within about 30 seconds.
 
 ## Using cr.joyent.us with an existing local workspace
 
@@ -562,7 +569,7 @@ submit a new patchset:
     # Switch back to your working branch.
     $ git checkout WORKING_BRANCH
 
-Some tooling could be helpful here.
+[grr](https://github.com/joyent/grr) makes this approach very simple.
 
 As long as you started with no uncommitted changes, this procedure will never
 lose any data, and you'll wind up in the same state you started: on your working
