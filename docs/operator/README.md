@@ -146,6 +146,52 @@ to get the settings right, and we likely won't discover if they're wrong until
 something bad has already happened.)
 
 
+### Using `git gc` on `illumos-joyent`
+
+Gerrit git repositories need to be regularly garbage-collected, as the review
+process often results in quite a lot of dangling commits and sub-optimal pack
+structures. Gerrit itself does not do any automatic periodic garbage collection,
+and today we run this by hand on an as-needed basis.
+
+While most repositories in Gerrit currently can be garbage collected by running
+`gerrit gc` via the SSH interface, the `illumos-joyent` repo is too large for
+this tool to run. If you start a `gerrit gc` on `illumos-joyent` it will run
+for around 6-12 hours while making the Gerrit server very slow and is likely to
+eventually crash it.
+
+In accordance with the Gerrit documentation, you can run `git gc` by hand in
+the repository directly for cases like this. This is best done by logging into
+the Gerrit zone using `docker exec` and running it in the `illumos-joyent.git`
+directory as follows:
+
+    $ docker ps
+    CONTAINER ID     IMAGE                                 COMMAND                  CREATED          STATUS           PORTS            NAMES
+    455e52055eb3     arekinath/gerrit-nginx                "/usr/sbin/nginx"        2 years ago      Up 10 weeks      0.0.0.0:22 ...   gerrit20160920-frontdoor
+    ca325bd2b974     joyentunsupported/joyent-gerrit:dev   "/gerrit-entrypoint.…"   2 years ago      Up 9 days                         gerrit20160920-appserver
+    88eb813b4fef     postgres:9.5.3                        "/docker-entrypoint.…"   2 years ago      Up 9 months      5432/tcp         gerrit20160920-postgres
+
+    $ docker exec -it ca325bd2b974 /bin/bash --login
+    ca325bd2b974:/# su -l -s /bin/bash gerrit2
+    ca325bd2b974:~$ id
+    uid=10000(gerrit2) gid=65533(nogroup) groups=65533(nogroup),65533(nogroup)
+
+    ca325bd2b974:~$ cd /var/gerrit/review_site/git/joyent/illumos-joyent.git/
+    ca325bd2b974:~/review_site/git/joyent/illumos-joyent.git$ git gc --aggressive
+    Counting objects: 518370, done.
+    Delta compression using up to 48 threads.
+    Compressing objects: 100% (93549/93549), done.
+    Writing objects: 100% (518370/518370), done.
+    Total 518370 (delta 387262), reused 518316 (delta 387208)
+    Checking connectivity: 518577, done.
+
+It's important to make sure to use the `su` command to change to the `gerrit2`
+user (and make sure to give the `-s /bin/bash` option!), or else you will mess
+up permissions on parts of the git repo on disk (if you do so the first thing
+you'll likely notice is that pushes of new reviews stop working -- reading
+existing reviews is likely to still work, so don't rely on just doing that to
+test if you're unsure whether you messed it up).
+
+
 ## Deployment notes
 
 cr.joyent.us is deployed in us-west-1 (behind TLS), using CNS for internal and
