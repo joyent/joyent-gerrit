@@ -5,7 +5,7 @@
 -->
 
 <!--
-    Copyright 2016 Joyent, Inc.
+    Copyright 2019 Joyent, Inc.
 -->
 
 # cr.joyent.us new user instructions
@@ -319,6 +319,31 @@ go through code review on Gerrit and are ultimately submitted (integrated into
 master) will be replicated to GitHub.  Changes pushed directly to master on
 Gerrit (bypassing code review) will also be replicated to GitHub.
 
+## Creating Gerrit reviews against a branch
+
+It can be useful to create Gerrit reviews with a base branch other than
+'master'. For this to work, the branch has to be pushed into cr.joyent.us.
+You will need to be a Gerrit admin, or ask one to do the following for you.
+
+If our base branch is `my-dev-branch`:
+
+1. Make sure your local check-out of the base branch is identical to that hosted
+   on github (same SHA for HEAD).
+
+1. Add yourself to "Temporary Git Superusers" via the
+   [gerrit admin interface](https://cr.joyent.us/#/admin/groups/).
+
+1. Push that base branch directly to `cr.joyent.us`:
+
+       $ git push cr HEAD:refs/heads/my-dev-branch
+
+1. Remove yourself from "Temporary Git Superusers".
+
+1. Now, you can create Gerrit reviews against that branch as needed, by using
+   the magical `refs/for/<branchname>`:
+
+       $ git checkout my-latest-dev-work
+       $ git push cr HEAD:refs/for/my-dev-branch
 
 ## Merging from upstream repositories
 
