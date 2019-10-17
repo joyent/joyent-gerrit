@@ -16,6 +16,3 @@ Directories here include:
 * `images`: Dockerfiles and support files for creating the Docker images used in
   the stack
 * `tools/mk`: stock Joyent Makefile hunks
-
-This repository itself is managed by
-[cr.joyent.us](https://cr.joyent.us/#/q/project:joyent/joyent-gerrit).
